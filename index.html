@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Salary Dashboard</title>
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- Initial loading splash while we check for an existing session -->
+<div id="app-loading">
+  <div class="spinner"></div>
+</div>
+
+<!-- ============================================================
+     LOGIN VIEW
+============================================================ -->
+<div id="auth-screen" class="auth-screen hidden">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="mark" id="icon-slot-brand"></div>
+      <div class="name">Salary Dashboard</div>
+    </div>
+
+    <div id="login-panel">
+      <h1>登入</h1>
+      <p class="auth-sub">登入以查看你的薪水分配紀錄</p>
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" autocomplete="username" required>
+          <div class="field-error" id="login-email-error"></div>
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" autocomplete="current-password" required>
+          <div class="field-error" id="login-password-error"></div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">
+          <span class="btn-label">登入</span>
+        </button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="show-forgot">忘記密碼</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="forgot-panel" class="hidden">
+      <h1>重設密碼</h1>
+      <p class="auth-sub">輸入你的 Email,我們會寄送重設密碼連結</p>
+      <form id="forgot-form" novalidate>
+        <div class="field">
+          <label for="forgot-email">Email</label>
+          <input type="email" id="forgot-email" autocomplete="username" required>
+          <div class="field-error" id="forgot-email-error"></div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="forgot-submit">
+          <span class="btn-label">寄送重設連結</span>
+        </button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" id="show-login">返回登入</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP SHELL (shown after login)
+============================================================ -->
+<div id="app-shell" class="app-shell hidden">
+
+  <!-- Desktop sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="mark" id="icon-slot-brand-2"></div>
+      <div class="name">Salary Dashboard</div>
+    </div>
+    <ul class="nav-list" id="sidebar-nav"></ul>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar" id="user-avatar">-</div>
+        <div class="user-email" id="user-email-label">-</div>
+      </div>
+      <button class="nav-item" id="logout-btn-desktop"></button>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <!-- Mobile topbar -->
+    <div class="topbar">
+      <div class="name">Salary Dashboard</div>
+      <button class="btn btn-ghost btn-icon" id="logout-btn-mobile" aria-label="登出"></button>
+    </div>
+
+    <!-- ============================ DASHBOARD ============================ -->
+    <section class="view" id="view-dashboard">
+      <div class="view-header">
+        <div>
+          <h2 id="dashboard-month-label">—</h2>
+          <div class="subtitle">本月薪水分配總覽</div>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-accent" id="btn-add-salary">
+            <span class="icon-slot" data-icon="plus"></span>
+            <span>新增薪水</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="dashboard-content">
+        <div class="skel skel-card" style="margin-bottom:16px;"></div>
+        <div class="card-grid-3">
+          <div class="skel skel-card"></div>
+          <div class="skel skel-card"></div>
+          <div class="skel skel-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ SALARY RECORDS ============================ -->
+    <section class="view hidden" id="view-records">
+      <div class="view-header">
+        <div>
+          <h2>薪水紀錄</h2>
+          <div class="subtitle">所有歷史薪水與分配紀錄</div>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-accent" id="btn-add-salary-2">
+            <span class="icon-slot" data-icon="plus"></span>
+            <span>新增薪水</span>
+          </button>
+        </div>
+      </div>
+      <div id="records-content">
+        <div class="skel skel-card" style="height:280px;"></div>
+      </div>
+    </section>
+
+    <!-- ============================ STATISTICS ============================ -->
+    <section class="view hidden" id="view-statistics">
+      <div class="view-header">
+        <div>
+          <h2>統計</h2>
+          <div class="subtitle">依日期區間查看累積金額與趨勢</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="field">
+          <label for="stats-start-date">開始日期</label>
+          <input type="date" id="stats-start-date">
+        </div>
+        <div class="field">
+          <label for="stats-end-date">結束日期</label>
+          <input type="date" id="stats-end-date">
+        </div>
+        <button class="btn btn-secondary" id="stats-apply-btn">套用</button>
+      </div>
+
+      <div id="statistics-content">
+        <div class="skel skel-card" style="height:320px;"></div>
+      </div>
+    </section>
+
+    <!-- ============================ ACCOUNTS ============================ -->
+    <section class="view hidden" id="view-accounts">
+      <div class="view-header">
+        <div>
+          <h2>帳戶管理</h2>
+          <div class="subtitle">管理可用於分配薪水的帳戶</div>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-accent" id="btn-add-account">
+            <span class="icon-slot" data-icon="plus"></span>
+            <span>新增帳戶</span>
+          </button>
+        </div>
+      </div>
+      <div id="accounts-content">
+        <div class="account-grid">
+          <div class="skel skel-card"></div>
+          <div class="skel skel-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ SETTINGS ============================ -->
+    <section class="view hidden" id="view-settings">
+      <div class="view-header">
+        <div>
+          <h2>設定</h2>
+          <div class="subtitle">修改薪水分配比例(僅影響未來新增的薪水)</div>
+        </div>
+      </div>
+      <div class="card" style="max-width:480px;">
+        <form id="settings-form">
+          <div class="rate-row">
+            <span class="cat-dot" style="background:var(--expense)"></span>
+            <div class="field">
+              <label for="rate-expense">花費比例 (%)</label>
+              <input type="number" id="rate-expense" min="0" max="100" step="0.01" required>
+            </div>
+          </div>
+          <div class="rate-row">
+            <span class="cat-dot" style="background:var(--saving)"></span>
+            <div class="field">
+              <label for="rate-saving">儲蓄比例 (%)</label>
+              <input type="number" id="rate-saving" min="0" max="100" step="0.01" required>
+            </div>
+          </div>
+          <div class="rate-row">
+            <span class="cat-dot" style="background:var(--investment)"></span>
+            <div class="field">
+              <label for="rate-investment">投資比例 (%)</label>
+              <input type="number" id="rate-investment" min="0" max="100" step="0.01" required>
+            </div>
+          </div>
+          <div class="rate-total" id="rate-total-display">總和:100%</div>
+          <button type="submit" class="btn btn-primary btn-block" id="settings-submit">儲存設定</button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <!-- Mobile bottom navigation -->
+  <nav class="bottom-nav">
+    <ul class="bottom-nav-list" id="bottom-nav-list"></ul>
+  </nav>
+</div>
+
+<!-- Modal mount point -->
+<div id="modal-root"></div>
+
+<!-- Toasts -->
+<div id="toast-stack"></div>
+
+<script src="js/supabase.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/accounts.js"></script>
+<script src="js/salary.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/statistics.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>
