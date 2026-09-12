@@ -52,7 +52,7 @@ create table if not exists public.accounts (
   allow_expense boolean not null default false,
   allow_saving boolean not null default false,
   allow_investment boolean not null default false,
-  interest_rate numeric(5,2),
+  interest_rate numeric(7,4),
   interest_note text,
   note text,
   is_active boolean not null default true,
@@ -126,6 +126,33 @@ create index if not exists idx_allocations_salary_record_id on public.salary_all
 create index if not exists idx_allocations_account_id on public.salary_allocations(account_id);
 
 -- =========================================================
+-- account_initial_balances
+-- Per-PURPOSE starting accumulated amount for an account (money that
+-- already existed for that purpose before this app was used). One row
+-- per (account, category) — never a single ambiguous total on the
+-- account itself, since the same account can serve more than one
+-- purpose. Purely a memo value: no interest/compounding is computed
+-- from it, and it is never treated as a live bank balance.
+-- =========================================================
+create table if not exists public.account_initial_balances (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  category text not null,
+  amount numeric(12,2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint account_initial_balances_category_check check (
+    category in ('expense', 'saving', 'investment')
+  ),
+  constraint account_initial_balances_amount_nonnegative check (amount >= 0),
+  constraint account_initial_balances_unique_per_account_category unique (account_id, category)
+);
+
+create index if not exists idx_account_initial_balances_user_id on public.account_initial_balances(user_id);
+create index if not exists idx_account_initial_balances_account_id on public.account_initial_balances(account_id);
+
+-- =========================================================
 -- Trigger: keep updated_at fresh
 -- =========================================================
 create or replace function public.set_updated_at()
@@ -154,6 +181,10 @@ create trigger trg_salary_records_updated_at before update on public.salary_reco
 
 drop trigger if exists trg_salary_allocations_updated_at on public.salary_allocations;
 create trigger trg_salary_allocations_updated_at before update on public.salary_allocations
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_account_initial_balances_updated_at on public.account_initial_balances;
+create trigger trg_account_initial_balances_updated_at before update on public.account_initial_balances
   for each row execute function public.set_updated_at();
 
 -- =========================================================
