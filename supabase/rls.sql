@@ -11,6 +11,7 @@ alter table public.settings enable row level security;
 alter table public.accounts enable row level security;
 alter table public.salary_records enable row level security;
 alter table public.salary_allocations enable row level security;
+alter table public.account_initial_balances enable row level security;
 
 -- =========================================================
 -- profiles
@@ -185,6 +186,68 @@ create policy salary_allocations_delete_own
   );
 
 -- =========================================================
+-- account_initial_balances
+-- Same defense-in-depth pattern as salary_allocations: checks
+-- auth.uid() = user_id AND verifies via subquery that the referenced
+-- account_id actually belongs to the current user.
+-- =========================================================
+drop policy if exists account_initial_balances_select_own on public.account_initial_balances;
+create policy account_initial_balances_select_own
+  on public.account_initial_balances for select
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.accounts a
+      where a.id = account_initial_balances.account_id
+        and a.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists account_initial_balances_insert_own on public.account_initial_balances;
+create policy account_initial_balances_insert_own
+  on public.account_initial_balances for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.accounts a
+      where a.id = account_initial_balances.account_id
+        and a.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists account_initial_balances_update_own on public.account_initial_balances;
+create policy account_initial_balances_update_own
+  on public.account_initial_balances for update
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.accounts a
+      where a.id = account_initial_balances.account_id
+        and a.user_id = auth.uid()
+    )
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.accounts a
+      where a.id = account_initial_balances.account_id
+        and a.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists account_initial_balances_delete_own on public.account_initial_balances;
+create policy account_initial_balances_delete_own
+  on public.account_initial_balances for delete
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.accounts a
+      where a.id = account_initial_balances.account_id
+        and a.user_id = auth.uid()
+    )
+  );
+
+-- =========================================================
 -- Grants: authenticated role needs table + sequence + function access.
 -- Supabase's anon/authenticated roles already have these by default
 -- on the public schema, but this makes it explicit.
@@ -195,7 +258,8 @@ grant select, insert, update, delete on
   public.settings,
   public.accounts,
   public.salary_records,
-  public.salary_allocations
+  public.salary_allocations,
+  public.account_initial_balances
 to authenticated;
 grant execute on function public.validate_allocation_account(uuid, text) to authenticated;
 grant execute on function public.create_salary_record(date, numeric, uuid, uuid, uuid) to authenticated;
