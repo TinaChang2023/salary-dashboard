@@ -2,6 +2,13 @@
 // accounts.js — Account management (CRUD, soft-deactivate)
 // Also exposes a small in-memory cache other modules use to
 // populate account <select> dropdowns without refetching.
+//
+// Each account can additionally carry a per-PURPOSE "起始累積金額"
+// (accumulated amount from before this app was used), stored in the
+// account_initial_balances table (one row per account+category) so
+// the same account can have independent starting amounts for
+// expense / saving / investment. See account.initial on each cached
+// account object: { expense: number, saving: number, investment: number }.
 // =========================================================
 
 window.Accounts = {
@@ -13,18 +20,43 @@ window.Accounts = {
 
   async ensureLoaded(force = false) {
     if (this.cache && !force) return this.cache;
-    const { data, error } = await supabaseClient
-      .from('accounts')
-      .select('*')
-      .order('is_active', { ascending: false })
-      .order('name', { ascending: true });
-    if (error) {
-      console.error(error);
+
+    const [{ data: accounts, error: acctError }, { data: initialRows, error: initError }] = await Promise.all([
+      supabaseClient
+        .from('accounts')
+        .select('*')
+        .order('is_active', { ascending: false })
+        .order('name', { ascending: true }),
+      supabaseClient
+        .from('account_initial_balances')
+        .select('account_id, category, amount'),
+    ]);
+
+    if (acctError) {
+      console.error(acctError);
       toastError('無法載入帳戶資料');
       this.cache = [];
       return this.cache;
     }
-    this.cache = data;
+    if (initError) {
+      // Non-fatal: accounts still load, initial amounts just default to 0.
+      console.error(initError);
+    }
+
+    const initialByAccount = {};
+    (initialRows || []).forEach(row => {
+      if (!initialByAccount[row.account_id]) initialByAccount[row.account_id] = {};
+      initialByAccount[row.account_id][row.category] = Number(row.amount);
+    });
+
+    this.cache = accounts.map(a => ({
+      ...a,
+      initial: {
+        expense: initialByAccount[a.id]?.expense || 0,
+        saving: initialByAccount[a.id]?.saving || 0,
+        investment: initialByAccount[a.id]?.investment || 0,
+      },
+    }));
     return this.cache;
   },
 
@@ -80,6 +112,13 @@ window.Accounts = {
     if (a.interest_rate !== null && a.interest_rate !== undefined && a.interest_rate !== '') {
       notes.push(`<div class="account-note"><b>優惠利率 ${Number(a.interest_rate)}%</b>${a.interest_note ? ' · ' + escapeHtml(a.interest_note) : ''}</div>`);
     }
+    const initialParts = [];
+    if (a.initial?.expense > 0) initialParts.push(`起始花費金額 ${formatMoney(a.initial.expense)}`);
+    if (a.initial?.saving > 0) initialParts.push(`起始儲蓄金額 ${formatMoney(a.initial.saving)}`);
+    if (a.initial?.investment > 0) initialParts.push(`起始投資金額 ${formatMoney(a.initial.investment)}`);
+    if (initialParts.length > 0) {
+      notes.push(`<div class="account-note">${initialParts.join('・')}</div>`);
+    }
     if (a.note) notes.push(`<div class="account-note">${escapeHtml(a.note)}</div>`);
 
     return `
@@ -127,6 +166,15 @@ window.Accounts = {
   // -------------------------------------------------------
   openEditModal(account) {
     const isEdit = !!account;
+    const initial = account?.initial || { expense: 0, saving: 0, investment: 0 };
+
+    const initialField = (category, label, checked) => `
+      <div class="field initial-amount-field" id="initial-field-${category}" style="${checked ? '' : 'display:none;'}margin-top:8px;">
+        <label for="acct-initial-${category}">${label}</label>
+        <input type="number" id="acct-initial-${category}" min="0" step="1" value="${initial[category] || 0}">
+        <div class="field-hint">開始使用本 App「之前」,這個帳戶已經累積、屬於此用途的金額,不是目前銀行餘額。</div>
+      </div>`;
+
     const bodyHtml = `
       <form id="account-form">
         <div class="field">
@@ -148,10 +196,14 @@ window.Accounts = {
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="acct-allow-saving" ${isEdit && account.allow_saving ? 'checked' : ''}> 儲蓄</label>
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="acct-allow-investment" ${isEdit && account.allow_investment ? 'checked' : ''}> 投資</label>
           </div>
+          ${initialField('expense', '起始花費金額', !isEdit || account.allow_expense)}
+          ${initialField('saving', '起始儲蓄金額', isEdit && account.allow_saving)}
+          ${initialField('investment', '起始投資金額', isEdit && account.allow_investment)}
         </div>
         <div class="field">
           <label for="acct-interest-rate">優惠活存利率 (%,選填)</label>
-          <input type="number" id="acct-interest-rate" step="0.01" min="0" value="${isEdit && account.interest_rate !== null ? account.interest_rate : ''}" placeholder="例如:1.5">
+          <input type="number" id="acct-interest-rate" step="0.001" min="0" value="${isEdit && account.interest_rate !== null ? account.interest_rate : ''}" placeholder="例如:1.435">
+          <div class="field-hint">會保留你輸入的完整小數位數,不會四捨五入。</div>
         </div>
         <div class="field">
           <label for="acct-interest-note">利率資訊備註(選填)</label>
@@ -175,6 +227,13 @@ window.Accounts = {
       onMount: () => {
         document.getElementById('account-cancel-btn').addEventListener('click', closeModal);
         document.getElementById('account-save-btn').addEventListener('click', () => this.submitForm(account));
+
+        // Show/hide each category's "起始累積金額" field alongside its checkbox.
+        ['expense', 'saving', 'investment'].forEach(category => {
+          document.getElementById(`acct-allow-${category}`).addEventListener('change', (e) => {
+            document.getElementById(`initial-field-${category}`).style.display = e.target.checked ? '' : 'none';
+          });
+        });
       },
     });
   },
@@ -200,24 +259,59 @@ window.Accounts = {
       return;
     }
 
+    // Collect starting accumulated amounts only for currently-checked
+    // purposes (each is tied to a specific category, never a single
+    // ambiguous "account total" — see account_initial_balances table).
+    const initialAmounts = {};
+    if (allow_expense) initialAmounts.expense = Number(document.getElementById('acct-initial-expense').value) || 0;
+    if (allow_saving) initialAmounts.saving = Number(document.getElementById('acct-initial-saving').value) || 0;
+    if (allow_investment) initialAmounts.investment = Number(document.getElementById('acct-initial-investment').value) || 0;
+
     const payload = { name, account_type, allow_expense, allow_saving, allow_investment, interest_rate, interest_note, note };
     const saveBtn = document.getElementById('account-save-btn');
 
     await withLoading(saveBtn, async () => {
+      let accountId = existingAccount?.id;
       let error;
+
       if (existingAccount) {
         ({ error } = await supabaseClient.from('accounts').update(payload).eq('id', existingAccount.id));
       } else {
         payload.user_id = App.currentUser.id;
         payload.is_active = true;
-        ({ error } = await supabaseClient.from('accounts').insert(payload));
+        const insertResult = await supabaseClient.from('accounts').insert(payload).select().single();
+        error = insertResult.error;
+        accountId = insertResult.data?.id;
       }
+
       if (error) {
         console.error(error);
         errorEl.textContent = '無法儲存資料,請稍後再試。';
         errorEl.classList.add('show');
         return;
       }
+
+      // Upsert the starting accumulated amount for each checked purpose.
+      const initialRows = Object.entries(initialAmounts).map(([category, amount]) => ({
+        account_id: accountId,
+        user_id: App.currentUser.id,
+        category,
+        amount,
+      }));
+      if (initialRows.length > 0) {
+        const { error: initError } = await supabaseClient
+          .from('account_initial_balances')
+          .upsert(initialRows, { onConflict: 'account_id,category' });
+        if (initError) {
+          console.error(initError);
+          errorEl.textContent = '帳戶已儲存,但起始累積金額寫入失敗,請重新編輯後再試一次。';
+          errorEl.classList.add('show');
+          await this.ensureLoaded(true);
+          if (App.currentView === 'accounts') this.render();
+          return;
+        }
+      }
+
       closeModal();
       toastSuccess(existingAccount ? '帳戶已更新' : '帳戶已新增');
       await this.ensureLoaded(true);
