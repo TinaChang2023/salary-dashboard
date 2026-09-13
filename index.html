@@ -69,6 +69,32 @@
 </div>
 
 <!-- ============================================================
+     MODULE SELECT (shown after login, before entering either module)
+============================================================ -->
+<div id="module-select-screen" class="auth-screen module-select-screen hidden">
+  <button class="btn btn-ghost btn-icon module-select-logout" id="module-select-logout" aria-label="登出"></button>
+  <div class="module-select-body">
+    <div class="auth-brand" style="justify-content:center;margin-bottom:28px;">
+      <div class="mark" id="icon-slot-brand-3"></div>
+      <div class="name">Salary Dashboard</div>
+    </div>
+    <h1 style="text-align:center;font-size:20px;margin-bottom:24px;">選擇要使用的功能</h1>
+    <div class="module-cards">
+      <button class="module-card" id="module-card-income">
+        <div class="module-card-icon">💰</div>
+        <div class="module-card-title">收入管理</div>
+        <div class="module-card-desc">管理薪水、分配比例、帳戶與收入統計</div>
+      </button>
+      <button class="module-card" id="module-card-expense">
+        <div class="module-card-icon">💳</div>
+        <div class="module-card-title">支出紀錄</div>
+        <div class="module-card-desc">管理信用卡與每月信用卡帳單</div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      APP SHELL (shown after login)
 ============================================================ -->
 <div id="app-shell" class="app-shell hidden">
@@ -77,7 +103,10 @@
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="mark" id="icon-slot-brand-2"></div>
-      <div class="name">Salary Dashboard</div>
+      <div>
+        <div class="name">Salary Dashboard</div>
+        <div id="sidebar-module-label" style="font-size:11px;color:var(--ink-soft);font-weight:600;"></div>
+      </div>
     </div>
     <ul class="nav-list" id="sidebar-nav"></ul>
     <div class="sidebar-footer">
@@ -224,6 +253,73 @@
         </form>
       </div>
     </section>
+
+    <!-- ============================ CC OVERVIEW ============================ -->
+    <section class="view hidden" id="view-cc-overview">
+      <div class="view-header">
+        <div>
+          <h2>信用卡總覽</h2>
+          <div class="subtitle">支出紀錄模組首頁</div>
+        </div>
+      </div>
+      <div id="cc-overview-content">
+        <div class="skel skel-card" style="height:200px;"></div>
+      </div>
+    </section>
+
+    <!-- ============================ CC CARDS (信用卡管理) ============================ -->
+    <section class="view hidden" id="view-cc-cards">
+      <div class="view-header">
+        <div>
+          <h2>信用卡管理</h2>
+          <div class="subtitle">新增、編輯、停用信用卡</div>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-accent" id="btn-add-card">
+            <span class="icon-slot" data-icon="plus"></span>
+            <span>加入信用卡</span>
+          </button>
+        </div>
+      </div>
+      <div id="cc-cards-content">
+        <div class="account-grid">
+          <div class="skel skel-card"></div>
+          <div class="skel skel-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ CC BILLS (信用卡帳單) ============================ -->
+    <section class="view hidden" id="view-cc-bills">
+      <div class="view-header">
+        <div>
+          <h2>信用卡帳單</h2>
+          <div class="subtitle">每月信用卡帳單紀錄</div>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-accent" id="btn-add-bill">
+            <span class="icon-slot" data-icon="plus"></span>
+            <span>新增信用卡帳單</span>
+          </button>
+        </div>
+      </div>
+      <div id="cc-bills-content">
+        <div class="skel skel-card" style="height:280px;"></div>
+      </div>
+    </section>
+
+    <!-- ============================ CC STATISTICS (信用卡統計) ============================ -->
+    <section class="view hidden" id="view-cc-statistics">
+      <div class="view-header">
+        <div>
+          <h2>信用卡統計</h2>
+          <div class="subtitle">每月支出、各卡趨勢與累積支出</div>
+        </div>
+      </div>
+      <div id="cc-statistics-content">
+        <div class="skel skel-card" style="height:320px;"></div>
+      </div>
+    </section>
   </div>
 
   <!-- Mobile bottom navigation -->
@@ -246,5 +342,9 @@
 <script src="js/dashboard.js"></script>
 <script src="js/statistics.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/creditcards.js"></script>
+<script src="js/bills.js"></script>
+<script src="js/cc-overview.js"></script>
+<script src="js/cc-statistics.js"></script>
 </body>
 </html>
