@@ -82,7 +82,7 @@ window.Auth = {
 
     await withLoading(submitBtn, async () => {
       const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + window.location.pathname,
+        redirectTo: 'https://tinachang2023.github.io/salary-dashboard/',
       });
       if (error) {
         toastError('無法寄送重設連結,請稍後再試。');
