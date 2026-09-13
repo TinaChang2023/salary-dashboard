@@ -216,6 +216,63 @@ a { color: inherit; }
 .link-btn:hover { text-decoration: underline; }
 
 /* =========================================================
+   Module select screen (shown after login)
+========================================================= */
+.module-select-screen {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+}
+.module-select-logout {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 5;
+}
+.module-select-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  width: 100%;
+}
+.module-cards {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 640px;
+  width: 100%;
+}
+.module-card {
+  flex: 1 1 260px;
+  max-width: 300px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.module-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 45px rgba(20, 24, 33, 0.12);
+}
+.module-card-icon { font-size: 36px; margin-bottom: 14px; }
+.module-card-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--ink); }
+.module-card-desc { font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+
+@media (max-width: 480px) {
+  .module-cards { flex-direction: column; align-items: stretch; }
+  .module-card { max-width: none; }
+}
+
+/* =========================================================
    App shell
 ========================================================= */
 .app-shell { display: flex; min-height: 100vh; }
@@ -619,6 +676,8 @@ table.data-table { width: 100%; border-collapse: collapse; min-width: 560px; }
 .tag.tag-expense { background: var(--expense-soft); color: var(--expense); }
 .tag.tag-saving { background: var(--saving-soft); color: var(--saving); }
 .tag.tag-investment { background: var(--investment-soft); color: var(--investment); }
+.tag.tag-paid { background: var(--success-soft); color: var(--success); }
+.tag.tag-unpaid { background: var(--surface-alt); color: var(--ink-soft); }
 .account-note { font-size: 12.5px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5; }
 .account-note b { color: var(--ink); }
 .account-card-actions { display: flex; gap: 8px; margin-top: 14px; }
